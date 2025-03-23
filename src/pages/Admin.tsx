@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import SectionHeading from '@/components/ui/section-heading';
 import { Button } from '@/components/ui/button';
@@ -7,34 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Admin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signIn, loading, user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Rediriger si l'utilisateur est déjà connecté
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Simple login simulation
-    setTimeout(() => {
-      if (email === 'admin@site.local' && password === 'admin') {
-        toast({
-          title: "Connexion réussie",
-          description: "Vous êtes maintenant connecté à l'interface d'administration.",
-        });
-      } else {
-        toast({
-          title: "Erreur de connexion",
-          description: "Identifiants incorrects. Veuillez réessayer.",
-          variant: "destructive",
-        });
-      }
-      setIsLoading(false);
-    }, 1500);
+    await signIn(email, password);
   };
   
   return (
@@ -81,9 +72,9 @@ const Admin = () => {
               <Button 
                 type="submit" 
                 className="w-full hover-shine"
-                disabled={isLoading}
+                disabled={loading}
               >
-                {isLoading ? (
+                {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Connexion en cours...
@@ -103,7 +94,7 @@ const Admin = () => {
                 <strong>Mot de passe:</strong> admin
               </p>
               <p className="mt-4 text-xs">
-                Note: Pour une version complète avec intégration Supabase, veuillez suivre les étapes d'intégration.
+                Note: Pour une version complète, assurez-vous que votre projet Supabase est correctement configuré.
               </p>
             </div>
           </motion.div>
