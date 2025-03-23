@@ -4,9 +4,18 @@ import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
-// Initialiser le client Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Valeurs par défaut pour Supabase si les variables d'environnement ne sont pas définies
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-project-id.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-supabase-anon-key';
+
+// Vérifier que les valeurs sont définies
+if (!supabaseUrl || supabaseUrl === 'https://your-supabase-project-id.supabase.co') {
+  console.error("ATTENTION: URL Supabase non configurée. Veuillez définir VITE_SUPABASE_URL dans votre environnement.");
+}
+
+if (!supabaseKey || supabaseKey === 'your-supabase-anon-key') {
+  console.error("ATTENTION: Clé Supabase non configurée. Veuillez définir VITE_SUPABASE_ANON_KEY dans votre environnement.");
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
