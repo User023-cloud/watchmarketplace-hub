@@ -123,7 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await checkIsAdmin(data.user);
         
         // Redirection explicite vers le tableau de bord
-        setTimeout(() => navigate('/dashboard'), 500);
+        console.log("Redirecting to dashboard after successful login");
+        navigate('/dashboard');
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
