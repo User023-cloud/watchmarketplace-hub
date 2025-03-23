@@ -21,7 +21,7 @@ const Dashboard = () => {
     }
     
     // Log pour le débogage
-    console.log('État de l'utilisateur dans Dashboard:', {
+    console.log("État de l'utilisateur dans Dashboard:", {
       user,
       isAdmin,
       loading,
