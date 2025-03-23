@@ -13,18 +13,22 @@ import { useAuth } from '@/contexts/AuthContext';
 const Admin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, loading, user } = useAuth();
+  const { signIn, loading, user, session } = useAuth();
   const navigate = useNavigate();
 
   // Rediriger si l'utilisateur est déjà connecté
   useEffect(() => {
-    if (user) {
+    console.log("Admin page - Auth state:", { user, sessionExists: !!session, loading });
+    
+    if (user && session) {
+      console.log("User is authenticated, redirecting to dashboard");
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, session, navigate, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Login form submitted with email:", email);
     await signIn(email, password);
   };
   

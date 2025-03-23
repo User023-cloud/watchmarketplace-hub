@@ -11,24 +11,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Settings, ShoppingBag, LogOut } from 'lucide-react';
 
 const Dashboard = () => {
-  const { user, signOut, isAdmin, loading } = useAuth();
+  const { user, signOut, isAdmin, loading, session } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     // Vérification supplémentaire de l'authentification
-    if (!loading && !user) {
-      navigate('/admin');
-    }
-    
-    // Log pour le débogage
-    console.log("État de l'utilisateur dans Dashboard:", {
+    console.log("Dashboard - Auth state:", {
       user,
+      sessionExists: !!session,
       isAdmin,
       loading,
       userEmail: user?.email,
       userId: user?.id
     });
-  }, [user, navigate, loading, isAdmin]);
+    
+    if (!loading && (!user || !session)) {
+      console.log("User not authenticated, redirecting to admin page");
+      navigate('/admin');
+    }
+  }, [user, navigate, loading, isAdmin, session]);
 
   return (
     <Layout>

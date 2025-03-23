@@ -1,28 +1,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-
-// Valeurs par défaut pour Supabase si les variables d'environnement ne sont pas définies
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-project-id.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-supabase-anon-key';
-
-// Vérifier que les valeurs sont définies
-if (!supabaseUrl || supabaseUrl === 'https://your-supabase-project-id.supabase.co') {
-  console.error("ATTENTION: URL Supabase non configurée. Veuillez définir VITE_SUPABASE_URL dans votre environnement.");
-}
-
-if (!supabaseKey || supabaseKey === 'your-supabase-anon-key') {
-  console.error("ATTENTION: Clé Supabase non configurée. Veuillez définir VITE_SUPABASE_ANON_KEY dans votre environnement.");
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/integrations/supabase/client';
 
 type AuthContextType = {
   user: User | null;
-  session: any | null;
-  supabase: SupabaseClient;
+  session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
@@ -33,34 +18,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<any | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est déjà connecté
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        checkIsAdmin(session.user);
-      }
-      
-      setLoading(false);
-    });
-
-    // Configurer l'écouteur de changement d'authentification
+    console.log("Initializing auth context...");
+    
+    // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session existante
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, newSession) => {
+        console.log('Auth state changed:', event, newSession);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         
-        if (session?.user) {
-          await checkIsAdmin(session.user);
+        if (newSession?.user) {
+          await checkIsAdmin(newSession.user);
         } else {
           setIsAdmin(false);
         }
@@ -69,6 +44,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
+    // ENSUITE vérifier si l'utilisateur est déjà connecté
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      console.log("Existing session:", existingSession);
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
+      
+      if (existingSession?.user) {
+        checkIsAdmin(existingSession.user);
+      }
+      
+      setLoading(false);
+    });
+
     return () => {
       subscription.unsubscribe();
     };
@@ -76,7 +64,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkIsAdmin = async (user: User) => {
     try {
-      // Vérifier si l'utilisateur a un rôle admin dans la base de données
+      // Pour l'instant, considérer tous les utilisateurs authentifiés comme admin
+      // À modifier plus tard pour vérifier un rôle spécifique dans la base de données
+      console.log("Checking admin status for user:", user.id);
+      setIsAdmin(true);
+      
+      // Décommenter et adapter ce code lorsque la table users avec le champ role sera créée
+      /*
       const { data, error } = await supabase
         .from('users')
         .select('role')
@@ -89,9 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // Définir isAdmin en fonction du rôle de l'utilisateur
       setIsAdmin(data?.role === 'admin');
       console.log('User admin status:', data?.role === 'admin');
+      */
     } catch (error) {
       console.error('Erreur lors de la vérification du rôle admin:', error);
       setIsAdmin(false);
@@ -101,12 +95,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
+      console.log("Attempting sign in with:", email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Sign in error:", error);
         toast({
           title: "Erreur de connexion",
           description: error.message,
@@ -116,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
+        console.log("Sign in successful:", data.user);
         toast({
           title: "Connexion réussie",
           description: "Vous êtes maintenant connecté à l'interface d'administration.",
@@ -123,7 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Vérifier le rôle admin avant la redirection
         await checkIsAdmin(data.user);
-        navigate('/dashboard');
+        
+        // Redirection explicite vers le tableau de bord
+        setTimeout(() => navigate('/dashboard'), 500);
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
@@ -163,7 +163,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         session,
-        supabase,
         signIn,
         signOut,
         loading,
