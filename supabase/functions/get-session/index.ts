@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
 
   try {
     // Get session_id from request body
-    const { session_id } = await req.json();
+    const { session_id } = await req.json()
     
     if (!session_id) {
       return new Response(
@@ -20,16 +20,20 @@ Deno.serve(async (req) => {
       )
     }
 
+    console.log('Retrieving session with ID:', session_id)
+
     // Retrieve the session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ['line_items', 'customer', 'payment_intent'],
+      expand: ['line_items', 'customer', 'payment_intent', 'customer_details'],
     })
+
+    console.log('Session retrieved successfully:', session.id)
 
     return new Response(
       JSON.stringify({ session }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error retrieving session:', error)
     return new Response(
       JSON.stringify({ error: error.message }),

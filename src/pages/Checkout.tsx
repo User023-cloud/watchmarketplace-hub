@@ -37,8 +37,13 @@ const Checkout = () => {
         return;
       }
 
-      // Rediriger vers Stripe
-      window.location.href = data.url;
+      if (data && data.url) {
+        // Rediriger vers Stripe
+        window.location.href = data.url;
+      } else {
+        toast.error('URL de paiement manquante dans la réponse');
+        setLoading(false);
+      }
       
     } catch (error) {
       console.error('Erreur:', error);

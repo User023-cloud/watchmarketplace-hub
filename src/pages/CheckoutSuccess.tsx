@@ -7,6 +7,7 @@ import { CheckCircle2, ShoppingBag } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -24,6 +25,7 @@ const CheckoutSuccess = () => {
     // Si pas de session_id, on ne fait pas la requête
     if (!sessionId) {
       setLoading(false);
+      setError("Paramètre de session manquant. Impossible de récupérer les détails de votre commande.");
       return;
     }
 
@@ -40,8 +42,16 @@ const CheckoutSuccess = () => {
           return;
         }
 
+        if (!data || !data.session) {
+          setError('Aucune donnée de session trouvée');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Session data:', data.session);
         setOrderDetails(data.session);
         setLoading(false);
+        toast.success('Commande confirmée avec succès!');
       } catch (err) {
         console.error('Erreur:', err);
         setError('Une erreur est survenue');
@@ -100,27 +110,38 @@ const CheckoutSuccess = () => {
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground mb-1">Email</h3>
-                  <p>{orderDetails.customer_details?.email}</p>
+                  <p>{orderDetails.customer_details?.email || 'Non disponible'}</p>
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground mb-1">Total</h3>
                   <p className="font-medium">{formatPrice(orderDetails.amount_total)}</p>
                 </div>
               </div>
-              {orderDetails.shipping_details && (
+              {orderDetails.customer_details && orderDetails.customer_details.address && (
                 <div className="p-4">
                   <h3 className="font-medium mb-2">Adresse de livraison</h3>
                   <address className="not-italic text-sm text-muted-foreground">
                     {orderDetails.customer_details?.name}<br />
-                    {orderDetails.shipping_details.address.line1}<br />
-                    {orderDetails.shipping_details.address.line2 && 
-                      <>{orderDetails.shipping_details.address.line2}<br /></>
+                    {orderDetails.customer_details.address.line1}<br />
+                    {orderDetails.customer_details.address.line2 && 
+                      <>{orderDetails.customer_details.address.line2}<br /></>
                     }
-                    {orderDetails.shipping_details.address.postal_code} {orderDetails.shipping_details.address.city}<br />
-                    {orderDetails.shipping_details.address.country}
+                    {orderDetails.customer_details.address.postal_code} {orderDetails.customer_details.address.city}<br />
+                    {orderDetails.customer_details.address.country}
                   </address>
                 </div>
               )}
+              <div className="p-4">
+                <h3 className="font-medium mb-2">Articles</h3>
+                <ul className="space-y-2">
+                  {orderDetails.line_items?.data?.map((item: any, index: number) => (
+                    <li key={index} className="flex justify-between text-sm">
+                      <span>{item.quantity}x {item.description}</span>
+                      <span>{formatPrice(item.amount_total)}</span>
+                    </li>
+                  )) || <li>Aucune information sur les articles disponible</li>}
+                </ul>
+              </div>
             </div>
           ) : (
             <p className="text-yellow-600">

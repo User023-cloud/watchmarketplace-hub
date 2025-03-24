@@ -3,8 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { stripe } from '../_shared/stripe.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// Documentation on Deno Deploy: https://deno.com/deploy/docs
-
 Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -21,6 +19,8 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
+
+    console.log('Creating checkout session with items:', cartItems.length)
 
     // Format line items for Stripe
     const lineItems = cartItems.map(item => ({
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       line_items: lineItems,
       mode: 'payment',
       success_url: successUrl || `${req.headers.get('origin')}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${req.headers.get('origin')}/shop`,
+      cancel_url: cancelUrl || `${req.headers.get('origin')}/checkout`,
       shipping_address_collection: {
         allowed_countries: ['FR', 'BE', 'CH', 'LU', 'MC'],
       },
@@ -50,13 +50,16 @@ Deno.serve(async (req) => {
       locale: 'fr',
       allow_promotion_codes: true,
       customer_creation: 'always',
+      expand: ['customer'],
     })
+
+    console.log('Checkout session created successfully:', session.id)
 
     return new Response(
       JSON.stringify({ sessionId: session.id, url: session.url }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating checkout session:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
