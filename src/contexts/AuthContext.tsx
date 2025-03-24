@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,6 +9,7 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
   isAdmin: boolean;
@@ -22,36 +23,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
     console.log("Initializing auth context...");
     
-    // Configurer l'écouteur de changement d'authentification AVANT de vérifier la session existante
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('Auth state changed:', event, newSession);
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
         
-        if (newSession?.user) {
-          await checkIsAdmin(newSession.user);
+        if (newSession) {
+          console.log('User authenticated:', newSession.user.email);
+          setSession(newSession);
+          setUser(newSession.user);
+          setIsAdmin(true); // Consider all authenticated users as admin for now
+          
+          // Only redirect if we're on admin page or login-related paths
+          if (location.pathname === '/admin') {
+            console.log('Redirecting to dashboard after authentication');
+            navigate('/dashboard');
+          }
         } else {
+          console.log('User not authenticated');
+          setSession(null);
+          setUser(null);
           setIsAdmin(false);
+          
+          // Redirect to admin login if on dashboard and not authenticated
+          if (location.pathname === '/dashboard') {
+            console.log('Redirecting to admin login page - not authenticated');
+            navigate('/admin');
+          }
         }
         
         setLoading(false);
       }
     );
 
-    // ENSUITE vérifier si l'utilisateur est déjà connecté
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       console.log("Existing session:", existingSession);
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
       
-      if (existingSession?.user) {
-        checkIsAdmin(existingSession.user);
+      if (existingSession) {
+        setSession(existingSession);
+        setUser(existingSession.user);
+        setIsAdmin(true); // Consider all authenticated users as admin for now
+        
+        // Only redirect if we're on admin page
+        if (location.pathname === '/admin') {
+          console.log('Redirecting to dashboard - existing session found');
+          navigate('/dashboard');
+        }
+      } else {
+        // Redirect to admin login if on dashboard and no session
+        if (location.pathname === '/dashboard') {
+          console.log('Redirecting to admin login page - no session found');
+          navigate('/admin');
+        }
       }
       
       setLoading(false);
@@ -60,35 +90,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate, location.pathname]);
 
-  const checkIsAdmin = async (user: User) => {
+  const signUp = async (email: string, password: string) => {
     try {
-      // Pour l'instant, considérer tous les utilisateurs authentifiés comme admin
-      // À modifier plus tard pour vérifier un rôle spécifique dans la base de données
-      console.log("Checking admin status for user:", user.id);
-      setIsAdmin(true);
+      setLoading(true);
+      console.log("Attempting to register with:", email);
       
-      // Décommenter et adapter ce code lorsque la table users avec le champ role sera créée
-      /*
-      const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: 'admin' // Store role in user metadata
+          }
+        }
+      });
+
       if (error) {
-        console.error('Erreur lors de la vérification du rôle:', error);
-        setIsAdmin(false);
+        console.error("Registration error:", error);
+        toast({
+          title: "Erreur d'inscription",
+          description: error.message,
+          variant: "destructive",
+        });
         return;
       }
-      
-      setIsAdmin(data?.role === 'admin');
-      console.log('User admin status:', data?.role === 'admin');
-      */
+
+      if (data.user) {
+        console.log("Registration successful:", data.user);
+        toast({
+          title: "Inscription réussie",
+          description: "Votre compte administrateur a été créé avec succès.",
+        });
+        
+        // After successful registration, sign in
+        await signIn(email, password);
+      }
     } catch (error) {
-      console.error('Erreur lors de la vérification du rôle admin:', error);
-      setIsAdmin(false);
+      console.error('Erreur d\'inscription:', error);
+      toast({
+        title: "Erreur d'inscription",
+        description: "Une erreur s'est produite lors de l'inscription.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -119,10 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: "Vous êtes maintenant connecté à l'interface d'administration.",
         });
         
-        // Vérifier le rôle admin avant la redirection
-        await checkIsAdmin(data.user);
+        setIsAdmin(true); // Consider all authenticated users as admin for now
         
-        // Redirection explicite vers le tableau de bord
+        // Explicit redirect to dashboard
         console.log("Redirecting to dashboard after successful login");
         navigate('/dashboard');
       }
@@ -142,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       await supabase.auth.signOut();
+      console.log("User signed out successfully");
       toast({
         title: "Déconnexion réussie",
         description: "Vous avez été déconnecté avec succès.",
@@ -165,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         signIn,
+        signUp,
         signOut,
         loading,
         isAdmin

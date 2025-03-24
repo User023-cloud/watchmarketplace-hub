@@ -26,13 +26,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
+    console.log("ProtectedRoute: No user, redirecting to admin");
     return <Navigate to="/admin" replace />;
   }
   
   if (!isAdmin) {
+    console.log("ProtectedRoute: Not admin, redirecting to home");
     return <Navigate to="/" replace />;
   }
   
+  console.log("ProtectedRoute: Access granted");
   return <>{children}</>;
 };
 
