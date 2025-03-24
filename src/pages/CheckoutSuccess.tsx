@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('session_id');
+  const sessionId = searchParams.get('session_id') || localStorage.getItem('stripe_session_id');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<any>(null);
@@ -22,8 +22,14 @@ const CheckoutSuccess = () => {
     // Vider le panier une fois sur la page de succès
     clearCart();
     
+    // Clean up session ID from localStorage
+    if (localStorage.getItem('stripe_session_id')) {
+      console.log('Using session ID from localStorage');
+    }
+    
     // Si pas de session_id, on ne fait pas la requête
     if (!sessionId) {
+      console.error('No session ID available');
       setLoading(false);
       setError("Paramètre de session manquant. Impossible de récupérer les détails de votre commande.");
       return;
@@ -31,6 +37,8 @@ const CheckoutSuccess = () => {
 
     const fetchSession = async () => {
       try {
+        console.log('Fetching session details for ID:', sessionId);
+        
         const { data, error } = await supabase.functions.invoke('get-session', {
           body: { session_id: sessionId }
         });
@@ -43,18 +51,22 @@ const CheckoutSuccess = () => {
         }
 
         if (!data || !data.session) {
+          console.error('No session data returned:', data);
           setError('Aucune donnée de session trouvée');
           setLoading(false);
           return;
         }
 
-        console.log('Session data:', data.session);
+        console.log('Session data received:', data.session.id);
         setOrderDetails(data.session);
         setLoading(false);
         toast.success('Commande confirmée avec succès!');
+        
+        // Clear the session ID from localStorage after successful retrieval
+        localStorage.removeItem('stripe_session_id');
       } catch (err) {
         console.error('Erreur:', err);
-        setError('Une erreur est survenue');
+        setError('Une erreur est survenue lors de la récupération des détails de la commande');
         setLoading(false);
       }
     };

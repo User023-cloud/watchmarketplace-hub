@@ -22,6 +22,8 @@ const Checkout = () => {
 
     setLoading(true);
     try {
+      console.log('Starting checkout process with items:', items.length);
+      
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           cartItems: items,
@@ -38,9 +40,16 @@ const Checkout = () => {
       }
 
       if (data && data.url) {
+        console.log('Redirecting to Stripe checkout URL:', data.url);
+        // Store session ID in localStorage for later reference if needed
+        if (data.sessionId) {
+          localStorage.setItem('stripe_session_id', data.sessionId);
+        }
+        
         // Rediriger vers Stripe
         window.location.href = data.url;
       } else {
+        console.error('Missing URL in response:', data);
         toast.error('URL de paiement manquante dans la réponse');
         setLoading(false);
       }
