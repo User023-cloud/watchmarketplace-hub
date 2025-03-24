@@ -30,7 +30,7 @@ const CheckoutSuccess = () => {
     const fetchSession = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-session', {
-          query: { session_id: sessionId }
+          body: { session_id: sessionId }
         });
 
         if (error) {

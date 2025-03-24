@@ -10,11 +10,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get query parameter
-    const url = new URL(req.url)
-    const sessionId = url.searchParams.get('session_id')
+    // Get session_id from request body
+    const { session_id } = await req.json();
     
-    if (!sessionId) {
+    if (!session_id) {
       return new Response(
         JSON.stringify({ error: 'Session ID manquant' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -22,7 +21,7 @@ Deno.serve(async (req) => {
     }
 
     // Retrieve the session details from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
       expand: ['line_items', 'customer', 'payment_intent'],
     })
 
