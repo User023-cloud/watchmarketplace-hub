@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Heart } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
 
 interface ProductCardProps {
   id: string;
@@ -31,6 +32,7 @@ export const ProductCard = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
+  const { addItem } = useCart();
 
   // Format price with euro symbol
   const formattedPrice = new Intl.NumberFormat('fr-FR', {
@@ -59,6 +61,12 @@ export const ProductCard = ({
         ease: 'easeOut',
       },
     },
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem({ id, name, price, imageSrc, category });
   };
 
   return (
@@ -141,6 +149,7 @@ export const ProductCard = ({
           <Button
             size="sm"
             className="rounded-full text-sm px-4 hover-shine bg-primary hover:bg-primary/90"
+            onClick={handleAddToCart}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
             Ajouter

@@ -14,6 +14,9 @@ import Legal from "./pages/Legal";
 import Admin from "./pages/Admin";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import Checkout from "./pages/Checkout";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import CartDrawer from "./components/cart/CartDrawer";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +57,8 @@ const AppRoutes = () => {
           <Dashboard />
         </ProtectedRoute>
       } />
+      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/checkout/success" element={<CheckoutSuccess />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
