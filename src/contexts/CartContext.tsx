@@ -46,11 +46,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...updatedItems[existingItemIndex],
           quantity: updatedItems[existingItemIndex].quantity + 1,
         };
-        toast.success('Quantité mise à jour dans le panier');
         return updatedItems;
       } else {
         // Nouveau produit, ajouter au panier
-        toast.success('Produit ajouté au panier');
         return [...currentItems, { ...product, quantity: 1 }];
       }
     });
@@ -76,7 +74,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setItems([]);
-    toast.info('Panier vidé');
   };
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);

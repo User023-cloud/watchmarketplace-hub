@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Trash, Plus, Minus, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +10,17 @@ import { Separator } from '@/components/ui/separator';
 
 export function CartDrawer() {
   const { items, removeItem, updateQuantity, totalItems, totalPrice } = useCart();
+  const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   
   const handleCheckout = () => {
+    setOpen(false);
     navigate('/checkout');
+  };
+
+  const handleViewCart = () => {
+    setOpen(false);
+    navigate('/cart');
   };
 
   const formattedPrice = new Intl.NumberFormat('fr-FR', {
@@ -22,7 +29,7 @@ export function CartDrawer() {
   }).format(totalPrice);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="relative">
           <ShoppingCart className="h-5 w-5" />
@@ -46,7 +53,10 @@ export function CartDrawer() {
               <Button
                 variant="outline"
                 className="mt-4"
-                onClick={() => navigate('/shop')}
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/shop');
+                }}
               >
                 Découvrir notre collection
               </Button>
@@ -127,13 +137,24 @@ export function CartDrawer() {
               </div>
             </div>
             
-            <Button 
-              className="w-full mt-4 bg-gold hover:bg-gold/90 text-white"
-              onClick={handleCheckout}
-            >
-              Passer à la caisse
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex flex-col space-y-3 mt-4">
+              <Button 
+                className="w-full bg-gold hover:bg-gold/90 text-white"
+                onClick={handleCheckout}
+              >
+                Passer à la caisse
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleViewCart}
+              >
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                Voir le panier
+              </Button>
+            </div>
           </div>
         )}
       </SheetContent>

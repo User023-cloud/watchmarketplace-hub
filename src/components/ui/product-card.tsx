@@ -5,8 +5,9 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Heart } from 'lucide-react';
+import { ShoppingCart, Heart, Check } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { toast } from 'sonner';
 
 interface ProductCardProps {
   id: string;
@@ -31,6 +32,7 @@ export const ProductCard = ({
 }: ProductCardProps) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const { addItem } = useCart();
 
@@ -66,7 +68,22 @@ export const ProductCard = ({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Animation d'ajout
+    setIsAdding(true);
+    
+    // Ajouter au panier
     addItem({ id, name, price, imageSrc, category });
+    
+    // Réinitialiser après une courte durée
+    setTimeout(() => {
+      setIsAdding(false);
+    }, 1500);
+    
+    // Notification
+    toast.success(`${name} ajouté au panier`, {
+      description: "Vous pouvez voir votre panier en cliquant sur l'icône en haut à droite",
+    });
   };
 
   return (
@@ -148,11 +165,21 @@ export const ProductCard = ({
           <div className="font-semibold">{formattedPrice}</div>
           <Button
             size="sm"
-            className="rounded-full text-sm px-4 hover-shine bg-primary hover:bg-primary/90"
+            className={`rounded-full text-sm px-4 ${isAdding ? 'bg-green-600 hover:bg-green-700' : 'hover-shine bg-primary hover:bg-primary/90'}`}
             onClick={handleAddToCart}
+            disabled={isAdding}
           >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Ajouter
+            {isAdding ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Ajouté
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Ajouter
+              </>
+            )}
           </Button>
         </div>
       </div>
