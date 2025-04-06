@@ -9,6 +9,7 @@ import { ShoppingCart, Heart, Check, Zap } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProductCardProps {
   id: string;
@@ -38,6 +39,7 @@ export const ProductCard = ({
   const imageRef = useRef<HTMLImageElement>(null);
   const { addItem } = useCart();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Format price with euro symbol
   const formattedPrice = new Intl.NumberFormat('fr-FR', {
@@ -109,6 +111,8 @@ export const ProductCard = ({
           }],
           successUrl: `${window.location.origin}/checkout/success`,
           cancelUrl: `${window.location.origin}/shop`,
+          // Ajouter l'email de l'utilisateur s'il est connecté
+          userEmail: user?.email || null,
         },
       });
 
