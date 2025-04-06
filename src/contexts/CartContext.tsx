@@ -25,13 +25,22 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem('cart');
-    return savedCart ? JSON.parse(savedCart) : [];
+    try {
+      const savedCart = localStorage.getItem('cart');
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Erreur lors du chargement du panier:", error);
+      return [];
+    }
   });
 
   // Sauvegarde du panier dans le localStorage à chaque modification
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(items));
+    try {
+      localStorage.setItem('cart', JSON.stringify(items));
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde du panier:", error);
+    }
   }, [items]);
 
   const addItem = (product: Omit<CartItem, 'quantity'>) => {
@@ -46,17 +55,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...updatedItems[existingItemIndex],
           quantity: updatedItems[existingItemIndex].quantity + 1,
         };
+        toast.success(`Quantité de ${product.name} augmentée`);
         return updatedItems;
       } else {
         // Nouveau produit, ajouter au panier
+        toast.success(`${product.name} ajouté au panier`);
         return [...currentItems, { ...product, quantity: 1 }];
       }
     });
   };
 
   const removeItem = (id: string) => {
-    setItems(currentItems => currentItems.filter(item => item.id !== id));
-    toast.info('Produit retiré du panier');
+    setItems(currentItems => {
+      const itemToRemove = currentItems.find(item => item.id === id);
+      if (itemToRemove) {
+        toast.info(`${itemToRemove.name} retiré du panier`);
+      }
+      return currentItems.filter(item => item.id !== id);
+    });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -74,6 +90,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setItems([]);
+    try {
+      localStorage.removeItem('cart');
+    } catch (error) {
+      console.error("Erreur lors de la suppression du panier:", error);
+    }
   };
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);

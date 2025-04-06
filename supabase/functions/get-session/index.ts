@@ -23,17 +23,39 @@ Deno.serve(async (req) => {
 
     console.log('Retrieving session with ID:', session_id);
 
-    // Retrieve the session details from Stripe
-    const session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ['line_items', 'customer', 'payment_intent', 'customer_details'],
-    });
+    // Vérifier si le stripe est correctement initialisé
+    if (!stripe) {
+      console.error('Stripe is not properly initialized');
+      return new Response(
+        JSON.stringify({ error: 'Configuration de paiement manquante' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
 
-    console.log('Session retrieved successfully:', session.id);
+    try {
+      // Retrieve the session details from Stripe with expanded details
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ['line_items', 'line_items.data.price.product', 'customer', 'payment_intent', 'customer_details'],
+      });
 
-    return new Response(
-      JSON.stringify({ session }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+      console.log('Session retrieved successfully:', session.id);
+
+      return new Response(
+        JSON.stringify({ session }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    } catch (stripeError) {
+      console.error('Stripe API error when retrieving session:', stripeError.message);
+      // Check for specific Stripe errors
+      if (stripeError.message?.includes('No such checkout.session')) {
+        return new Response(
+          JSON.stringify({ error: 'Session de paiement introuvable ou expirée' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        )
+      }
+      
+      throw stripeError;
+    }
   } catch (error: any) {
     console.error('Error retrieving session:', error.message, error.stack);
     return new Response(

@@ -6,6 +6,7 @@ import { useCart } from '@/contexts/CartContext';
 import Layout from '@/components/layout/Layout';
 import { ArrowLeft, Minus, Plus, Trash, ShoppingBag, CreditCard } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 
 const Cart = () => {
   const { items, totalPrice, removeItem, updateQuantity } = useCart();
@@ -15,6 +16,25 @@ const Cart = () => {
     style: 'currency',
     currency: 'EUR',
   }).format(totalPrice);
+
+  const handleIncreaseQuantity = (id: string, currentQuantity: number, name: string) => {
+    updateQuantity(id, currentQuantity + 1);
+    toast.success(`Quantité de ${name} augmentée`);
+  };
+
+  const handleDecreaseQuantity = (id: string, currentQuantity: number, name: string) => {
+    if (currentQuantity > 1) {
+      updateQuantity(id, currentQuantity - 1);
+      toast.info(`Quantité de ${name} diminuée`);
+    } else {
+      removeItem(id);
+    }
+  };
+
+  const handleRemoveItem = (id: string, name: string) => {
+    removeItem(id);
+    toast.info(`${name} retiré du panier`);
+  };
 
   if (items.length === 0) {
     return (
@@ -76,9 +96,11 @@ const Cart = () => {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => handleRemoveItem(item.id, item.name)}
+                          title="Retirer du panier"
                         >
                           <Trash className="h-4 w-4" />
+                          <span className="sr-only">Retirer du panier</span>
                         </Button>
                       </div>
                       <p className="text-sm text-muted-foreground">{item.category}</p>
@@ -89,18 +111,22 @@ const Cart = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-none"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => handleDecreaseQuantity(item.id, item.quantity, item.name)}
+                            title="Diminuer la quantité"
                           >
                             <Minus className="h-3 w-3" />
+                            <span className="sr-only">Diminuer la quantité</span>
                           </Button>
                           <span className="w-8 text-center">{item.quantity}</span>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-none"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => handleIncreaseQuantity(item.id, item.quantity, item.name)}
+                            title="Augmenter la quantité"
                           >
                             <Plus className="h-3 w-3" />
+                            <span className="sr-only">Augmenter la quantité</span>
                           </Button>
                         </div>
                         <div className="text-right">

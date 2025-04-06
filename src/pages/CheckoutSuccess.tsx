@@ -22,57 +22,58 @@ const CheckoutSuccess = () => {
     // Vider le panier une fois sur la page de succès
     clearCart();
     
-    // Clean up session ID from localStorage
-    if (localStorage.getItem('stripe_session_id')) {
-      console.log('Using session ID from localStorage');
-    }
-    
-    // Si pas de session_id, on ne fait pas la requête
-    if (!sessionId) {
-      console.error('No session ID available');
-      setLoading(false);
-      setError("Paramètre de session manquant. Impossible de récupérer les détails de votre commande.");
-      return;
-    }
+    // S'assurer qu'il y a un ID de session
+    const checkSessionId = async () => {
+      if (sessionId) {
+        console.log('Using session ID:', sessionId);
+        try {
+          const { data, error } = await supabase.functions.invoke('get-session', {
+            body: { session_id: sessionId }
+          });
 
-    const fetchSession = async () => {
-      try {
-        console.log('Fetching session details for ID:', sessionId);
-        
-        const { data, error } = await supabase.functions.invoke('get-session', {
-          body: { session_id: sessionId }
-        });
+          if (error) {
+            console.error('Erreur lors de la récupération de la session:', error);
+            setError('Impossible de récupérer les détails de votre commande');
+            setLoading(false);
+            return;
+          }
 
-        if (error) {
-          console.error('Erreur lors de la récupération de la session:', error);
-          setError('Impossible de récupérer les détails de votre commande');
+          if (!data || !data.session) {
+            console.error('No session data returned:', data);
+            setError('Aucune donnée de session trouvée');
+            setLoading(false);
+            return;
+          }
+
+          console.log('Session data received:', data.session.id);
+          setOrderDetails(data.session);
           setLoading(false);
-          return;
-        }
-
-        if (!data || !data.session) {
-          console.error('No session data returned:', data);
-          setError('Aucune donnée de session trouvée');
+          toast.success('Commande confirmée avec succès!');
+          
+          // Clear the session ID from localStorage after successful retrieval
+          localStorage.removeItem('stripe_session_id');
+        } catch (err) {
+          console.error('Erreur:', err);
+          setError('Une erreur est survenue lors de la récupération des détails de la commande');
           setLoading(false);
-          return;
         }
-
-        console.log('Session data received:', data.session.id);
-        setOrderDetails(data.session);
-        setLoading(false);
-        toast.success('Commande confirmée avec succès!');
-        
-        // Clear the session ID from localStorage after successful retrieval
-        localStorage.removeItem('stripe_session_id');
-      } catch (err) {
-        console.error('Erreur:', err);
-        setError('Une erreur est survenue lors de la récupération des détails de la commande');
-        setLoading(false);
+      } else {
+        console.error('No session ID available');
+        // Session ID peut manquer lors d'un accès direct à la page de succès
+        // Si nous avons un paramètre session_id dans l'URL mais que localStorage est vide,
+        // enregistrez-le dans localStorage pour les futures tentatives
+        if (searchParams.get('session_id')) {
+          localStorage.setItem('stripe_session_id', searchParams.get('session_id')!);
+          window.location.reload(); // Recharger pour utiliser le sessionId du localStorage
+        } else {
+          setError("Paramètre de session manquant. Impossible de récupérer les détails de votre commande.");
+          setLoading(false);
+        }
       }
     };
 
-    fetchSession();
-  }, [sessionId, clearCart]);
+    checkSessionId();
+  }, [sessionId, clearCart, searchParams]);
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -122,7 +123,7 @@ const CheckoutSuccess = () => {
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground mb-1">Email</h3>
-                  <p>{orderDetails.customer_details?.email || 'Non disponible'}</p>
+                  <p>{orderDetails.customer_details?.email || orderDetails.customer_email || 'Non disponible'}</p>
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground mb-1">Total</h3>

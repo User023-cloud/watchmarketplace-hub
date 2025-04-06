@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
@@ -10,11 +10,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleCheckout = async () => {
@@ -29,12 +31,22 @@ const Checkout = () => {
     try {
       console.log('Starting checkout process with items:', items.length);
       
+      // Préparation des données de la requête
+      const requestData = {
+        cartItems: items,
+        successUrl: `${window.location.origin}/checkout/success`,
+        cancelUrl: `${window.location.origin}/checkout`,
+        // Ajout de l'email utilisateur s'il est authentifié
+        userEmail: user?.email || null,
+      };
+      
+      console.log('User status:', user ? 'authenticated' : 'not authenticated');
+      if (user) {
+        console.log('Using email:', user.email);
+      }
+      
       const { data, error: invokeError } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          cartItems: items,
-          successUrl: `${window.location.origin}/checkout/success`,
-          cancelUrl: `${window.location.origin}/checkout`,
-        },
+        body: requestData,
       });
 
       if (invokeError) {
@@ -58,6 +70,7 @@ const Checkout = () => {
         // Store session ID in localStorage for later reference if needed
         if (data.sessionId) {
           localStorage.setItem('stripe_session_id', data.sessionId);
+          console.log('Session ID stored in localStorage:', data.sessionId);
         }
         
         // Rediriger vers Stripe
@@ -165,9 +178,18 @@ const Checkout = () => {
                 <Truck className="h-5 w-5 text-muted-foreground" />
                 <h2 className="text-xl font-playfair font-semibold">Informations de livraison</h2>
               </div>
-              <p className="text-muted-foreground">
-                Les informations de livraison seront collectées sur la page de paiement Stripe.
-              </p>
+              {user ? (
+                <div>
+                  <p>Vous êtes connecté en tant que : <strong>{user.email}</strong></p>
+                  <p className="mt-2 text-muted-foreground">
+                    Votre adresse email sera automatiquement utilisée pour la commande.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">
+                  Les informations de livraison seront collectées sur la page de paiement Stripe.
+                </p>
+              )}
             </div>
           </div>
 

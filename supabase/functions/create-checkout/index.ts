@@ -23,8 +23,9 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { cartItems, successUrl, cancelUrl } = await req.json()
+    const { cartItems, successUrl, cancelUrl, userEmail } = await req.json()
     
+    // Validation des données requises
     if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
       console.error('Invalid cart:', !cartItems ? 'missing' : !Array.isArray(cartItems) ? 'not an array' : 'empty');
       return new Response(
@@ -34,6 +35,11 @@ Deno.serve(async (req) => {
     }
 
     console.log('Creating checkout session with items:', JSON.stringify(cartItems));
+    if (userEmail) {
+      console.log('User is authenticated, email:', userEmail);
+    } else {
+      console.log('User is not authenticated, no email provided');
+    }
 
     // Format line items for Stripe
     const lineItems = cartItems.map(item => ({
@@ -51,28 +57,46 @@ Deno.serve(async (req) => {
 
     // Add better origin fallback
     const origin = req.headers.get('origin') || 'https://example.com';
+
+    // Paramètres de base pour la session Stripe
+    const sessionParams = {
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: 'payment',
+      success_url: successUrl || `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${origin}/checkout`,
+      shipping_address_collection: {
+        allowed_countries: ['FR', 'BE', 'CH', 'LU', 'MC'],
+      },
+      billing_address_collection: 'required',
+      locale: 'fr',
+      allow_promotion_codes: true,
+    };
+
+    // Si un email utilisateur est fourni, l'ajouter aux paramètres de la session
+    if (userEmail) {
+      Object.assign(sessionParams, {
+        customer_email: userEmail,
+      });
+    } else {
+      // Sinon, toujours créer un client pour les utilisateurs anonymes
+      Object.assign(sessionParams, {
+        customer_creation: 'always',
+      });
+    }
     
     try {
       // Create Stripe checkout session
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: lineItems,
-        mode: 'payment',
-        success_url: successUrl || `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl || `${origin}/checkout`,
-        shipping_address_collection: {
-          allowed_countries: ['FR', 'BE', 'CH', 'LU', 'MC'],
-        },
-        billing_address_collection: 'required',
-        locale: 'fr',
-        allow_promotion_codes: true,
-        customer_creation: 'always',
-      })
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
       console.log('Checkout session created successfully:', session.id, 'redirecting to', session.url);
-
+      
+      // Store session ID in our response for the success page
       return new Response(
-        JSON.stringify({ sessionId: session.id, url: session.url }),
+        JSON.stringify({ 
+          sessionId: session.id, 
+          url: session.url,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     } catch (stripeError) {
