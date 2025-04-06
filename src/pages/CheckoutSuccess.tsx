@@ -81,6 +81,7 @@ const CheckoutSuccess = () => {
     };
     
     // Léger délai pour s'assurer que la session est disponible dans le système Stripe
+    // Fix the type issue by using window.setTimeout and not specifying a type
     const timer = setTimeout(() => {
       getSessionAndFetch();
     }, 1500);
@@ -91,7 +92,7 @@ const CheckoutSuccess = () => {
   // Mécanisme de nouvelle tentative si les données de session ne sont pas disponibles
   useEffect(() => {
     let retryAttempts = 0;
-    let retryInterval: number | undefined;
+    let retryInterval: ReturnType<typeof setInterval> | undefined;
     
     if (error && (error.includes('Paramètre de session manquant') || error.includes('Aucune donnée de session trouvée'))) {
       retryInterval = setInterval(() => {
