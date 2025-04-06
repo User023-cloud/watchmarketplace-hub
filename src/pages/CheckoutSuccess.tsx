@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,69 +10,116 @@ import { toast } from 'sonner';
 
 const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('session_id') || localStorage.getItem('stripe_session_id');
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [sessionIdFromUrl] = useState(searchParams.get('session_id'));
   const { clearCart } = useCart();
-  const navigate = useNavigate();
 
   useEffect(() => {
     // Vider le panier une fois sur la page de succès
     clearCart();
     
-    // S'assurer qu'il y a un ID de session
-    const checkSessionId = async () => {
-      if (sessionId) {
-        console.log('Using session ID:', sessionId);
-        try {
-          const { data, error } = await supabase.functions.invoke('get-session', {
-            body: { session_id: sessionId }
-          });
-
-          if (error) {
-            console.error('Erreur lors de la récupération de la session:', error);
-            setError('Impossible de récupérer les détails de votre commande');
-            setLoading(false);
-            return;
-          }
-
-          if (!data || !data.session) {
-            console.error('No session data returned:', data);
-            setError('Aucune donnée de session trouvée');
-            setLoading(false);
-            return;
-          }
-
-          console.log('Session data received:', data.session.id);
-          setOrderDetails(data.session);
-          setLoading(false);
-          toast.success('Commande confirmée avec succès!');
-          
-          // Clear the session ID from localStorage after successful retrieval
-          localStorage.removeItem('stripe_session_id');
-        } catch (err) {
-          console.error('Erreur:', err);
-          setError('Une erreur est survenue lors de la récupération des détails de la commande');
-          setLoading(false);
-        }
-      } else {
+    const fetchOrderDetails = async () => {
+      // S'assurer qu'il y a un ID de session, en priorité celui de l'URL
+      const sessionId = sessionIdFromUrl || localStorage.getItem('stripe_session_id');
+      
+      if (!sessionId) {
         console.error('No session ID available');
-        // Session ID peut manquer lors d'un accès direct à la page de succès
-        // Si nous avons un paramètre session_id dans l'URL mais que localStorage est vide,
-        // enregistrez-le dans localStorage pour les futures tentatives
-        if (searchParams.get('session_id')) {
-          localStorage.setItem('stripe_session_id', searchParams.get('session_id')!);
-          window.location.reload(); // Recharger pour utiliser le sessionId du localStorage
-        } else {
-          setError("Paramètre de session manquant. Impossible de récupérer les détails de votre commande.");
+        setError('Paramètre de session manquant. Impossible de récupérer les détails de votre commande.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Using session ID:', sessionId);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-session', {
+          body: { session_id: sessionId }
+        });
+
+        if (error) {
+          console.error('Erreur lors de la récupération de la session:', error);
+          setError('Impossible de récupérer les détails de votre commande');
           setLoading(false);
+          return;
         }
+
+        if (!data || !data.session) {
+          console.error('No session data returned:', data);
+          setError('Aucune donnée de session trouvée');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Session data received:', data.session.id);
+        setOrderDetails(data.session);
+        setLoading(false);
+        toast.success('Commande confirmée avec succès!');
+        
+        // Clear the session ID from localStorage after successful retrieval
+        localStorage.removeItem('stripe_session_id');
+      } catch (err) {
+        console.error('Erreur:', err);
+        setError('Une erreur est survenue lors de la récupération des détails de la commande');
+        setLoading(false);
       }
     };
 
-    checkSessionId();
-  }, [sessionId, clearCart, searchParams]);
+    // Introduce a slight delay to ensure the session is available in Stripe's system
+    const timer = setTimeout(() => {
+      fetchOrderDetails();
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [sessionIdFromUrl, clearCart]);
+  
+  // Retry mechanism if session data isn't available on the first try
+  useEffect(() => {
+    let retryAttempts = 0;
+    
+    if (error?.includes('Paramètre de session manquant') || error?.includes('Aucune donnée de session trouvée')) {
+      const retryInterval = setInterval(() => {
+        if (retryAttempts < 3) {
+          retryAttempts++;
+          const sessionId = sessionIdFromUrl || localStorage.getItem('stripe_session_id');
+          if (sessionId) {
+            // Re-fetch with the sessionId
+            setLoading(true);
+            setError(null);
+            
+            const fetchData = async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke('get-session', {
+                  body: { session_id: sessionId }
+                });
+                
+                if (!error && data && data.session) {
+                  console.log('Session data received on retry:', data.session.id);
+                  setOrderDetails(data.session);
+                  setLoading(false);
+                  setError(null);
+                  toast.success('Commande confirmée avec succès!');
+                  clearInterval(retryInterval);
+                  
+                  // Clear the session ID from localStorage after successful retrieval
+                  localStorage.removeItem('stripe_session_id');
+                }
+              } catch (err) {
+                console.error('Error during retry:', err);
+              }
+            };
+            
+            fetchData();
+          }
+        } else {
+          clearInterval(retryInterval);
+        }
+      }, 3000);
+      
+      return () => clearInterval(retryInterval);
+    }
+  }, [error, sessionIdFromUrl]);
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {

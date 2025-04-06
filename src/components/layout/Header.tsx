@@ -4,11 +4,14 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingCart, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useCart } from '@/contexts/CartContext';
+import CartDrawer from '@/components/cart/CartDrawer';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const { totalItems } = useCart();
   
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   
@@ -70,12 +73,14 @@ const Header = () => {
           
           {/* Action Buttons */}
           <div className="flex items-center space-x-4">
-            <Link to="/cart" className="relative p-1.5 hover:text-gold transition-colors">
-              <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 bg-gold text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                0
-              </span>
-            </Link>
+            <div className="relative">
+              <CartDrawer />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-gold text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </div>
             
             <Link to="/admin" className="hidden md:block p-1.5 hover:text-gold transition-colors">
               <User className="h-5 w-5" />

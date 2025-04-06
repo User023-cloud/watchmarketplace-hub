@@ -33,10 +33,30 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Retrieve the session details from Stripe with expanded details
-      const session = await stripe.checkout.sessions.retrieve(session_id, {
-        expand: ['line_items', 'line_items.data.price.product', 'customer', 'payment_intent', 'customer_details'],
-      });
+      // Retry mechanism for Stripe API calls
+      let retries = 3;
+      let session;
+      
+      while (retries > 0) {
+        try {
+          // Retrieve the session details from Stripe with expanded details
+          session = await stripe.checkout.sessions.retrieve(session_id, {
+            expand: ['line_items', 'line_items.data.price.product', 'customer', 'payment_intent', 'customer_details'],
+          });
+          break; // If successful, break the retry loop
+        } catch (retryError) {
+          retries--;
+          if (retries === 0) {
+            throw retryError; // If all retries fail, throw the error
+          }
+          // Wait a moment before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!session) {
+        throw new Error('Failed to retrieve session after multiple attempts');
+      }
 
       console.log('Session retrieved successfully:', session.id);
 

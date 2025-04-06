@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Heart, Check } from 'lucide-react';
+import { ShoppingCart, Heart, Check, Zap } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProductCardProps {
   id: string;
@@ -33,8 +34,10 @@ export const ProductCard = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const { addItem } = useCart();
+  const navigate = useNavigate();
 
   // Format price with euro symbol
   const formattedPrice = new Intl.NumberFormat('fr-FR', {
@@ -84,6 +87,51 @@ export const ProductCard = ({
     toast.success(`${name} ajouté au panier`, {
       description: "Vous pouvez voir votre panier en cliquant sur l'icône en haut à droite",
     });
+  };
+
+  const handleBuyNow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsProcessing(true);
+    
+    try {
+      // Créer une session Stripe avec un seul article
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {
+          cartItems: [{ 
+            id, 
+            name, 
+            price, 
+            imageSrc, 
+            category, 
+            quantity: 1 
+          }],
+          successUrl: `${window.location.origin}/checkout/success`,
+          cancelUrl: `${window.location.origin}/shop`,
+        },
+      });
+
+      if (error || data?.error) {
+        throw new Error(data?.error || error.message || 'Une erreur est survenue');
+      }
+
+      if (data?.url) {
+        // Stocker l'ID de session pour la page de confirmation
+        if (data.sessionId) {
+          localStorage.setItem('stripe_session_id', data.sessionId);
+        }
+        
+        // Redirection vers Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL de paiement manquante');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'achat direct:', error);
+      toast.error("Impossible de procéder à l'achat");
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -163,24 +211,45 @@ export const ProductCard = ({
         </Link>
         <div className="mt-auto flex items-center justify-between pt-3">
           <div className="font-semibold">{formattedPrice}</div>
-          <Button
-            size="sm"
-            className={`rounded-full text-sm px-4 ${isAdding ? 'bg-green-600 hover:bg-green-700' : 'hover-shine bg-primary hover:bg-primary/90'}`}
-            onClick={handleAddToCart}
-            disabled={isAdding}
-          >
-            {isAdding ? (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                Ajouté
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Ajouter
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className={`rounded-full text-sm px-3 ${isAdding ? 'bg-green-600 hover:bg-green-700' : 'hover-shine bg-primary hover:bg-primary/90'}`}
+              onClick={handleAddToCart}
+              disabled={isAdding || isProcessing}
+            >
+              {isAdding ? (
+                <>
+                  <Check className="h-3 w-3 mr-1" />
+                  Ajouté
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-3 w-3 mr-1" />
+                  Panier
+                </>
+              )}
+            </Button>
+            
+            <Button
+              size="sm"
+              className="rounded-full text-sm px-3 hover-shine bg-gold hover:bg-gold/90 text-white"
+              onClick={handleBuyNow}
+              disabled={isProcessing || isAdding}
+            >
+              {isProcessing ? (
+                <span className="flex items-center">
+                  <span className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1"></span>
+                  Achat...
+                </span>
+              ) : (
+                <>
+                  <Zap className="h-3 w-3 mr-1" />
+                  Acheter
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>

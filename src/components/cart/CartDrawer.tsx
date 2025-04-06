@@ -53,11 +53,6 @@ export function CartDrawer() {
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="relative">
           <ShoppingCart className="h-5 w-5" />
-          {totalItems > 0 && (
-            <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center p-0 text-xs">
-              {totalItems}
-            </Badge>
-          )}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col">
