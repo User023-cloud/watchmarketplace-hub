@@ -8,10 +8,13 @@ import { ArrowLeft, CreditCard, ShoppingBag, Truck } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleCheckout = async () => {
@@ -21,10 +24,12 @@ const Checkout = () => {
     }
 
     setLoading(true);
+    setError(null);
+    
     try {
       console.log('Starting checkout process with items:', items.length);
       
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
+      const { data, error: invokeError } = await supabase.functions.invoke('create-checkout', {
         body: {
           cartItems: items,
           successUrl: `${window.location.origin}/checkout/success`,
@@ -32,9 +37,18 @@ const Checkout = () => {
         },
       });
 
-      if (error) {
-        console.error('Erreur lors de la création de la session:', error);
+      if (invokeError) {
+        console.error('Erreur lors de la création de la session:', invokeError);
+        setError('Une erreur est survenue lors de la préparation du paiement');
         toast.error('Une erreur est survenue lors de la préparation du paiement');
+        setLoading(false);
+        return;
+      }
+
+      if (data?.error) {
+        console.error('Erreur retournée par la fonction:', data.error, data.details);
+        setError(data.error);
+        toast.error(data.error);
         setLoading(false);
         return;
       }
@@ -50,12 +64,14 @@ const Checkout = () => {
         window.location.href = data.url;
       } else {
         console.error('Missing URL in response:', data);
+        setError('URL de paiement manquante dans la réponse');
         toast.error('URL de paiement manquante dans la réponse');
         setLoading(false);
       }
       
     } catch (error) {
       console.error('Erreur:', error);
+      setError('Une erreur inattendue est survenue');
       toast.error('Une erreur est survenue');
       setLoading(false);
     }
@@ -102,6 +118,14 @@ const Checkout = () => {
           </Button>
           <h1 className="text-3xl font-playfair font-bold ml-4">Finaliser votre commande</h1>
         </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erreur</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Résumé de la commande */}
